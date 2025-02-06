@@ -20,4 +20,20 @@ class Order extends Model
        
     ];
      protected $table = 'orders';
+
+     public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class, 'order_id');
+    }
+
+     public function vendor()
+    {
+        return $this->belongsTo(User::class, 'vendor_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
 }

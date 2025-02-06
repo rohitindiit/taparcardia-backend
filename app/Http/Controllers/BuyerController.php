@@ -119,8 +119,21 @@ class BuyerController extends Controller
                 ], 201);
         }
 
-       public function getAllProducts($vendor_id, $user_id)
+       public function getAllProducts($vendor_id, $user_id= null)
         {
+            if(!$user_id)
+            {
+                    $products = Product::where("vendor_id", "=", $vendor_id)
+                    ->orderBy("created_at", "desc")
+                    ->get();
+                   
+                return response()->json([
+                    'status' => true,
+                    'message' => 'Products retrieved successfully!',
+                    'data' => $products,
+                ], 201);
+            }
+
             // Get all product IDs in the user's cart
             $cartProductIds = \DB::table('user_cart')
                 ->where('user_id', $user_id)
@@ -372,8 +385,16 @@ class BuyerController extends Controller
                         ], 200);
                     }
 
+                    if($request->is_default=="1")
+                    {
+                       UserAddress::query()->update(['is_default' => 0]);
+
+                    }
+
                    $userAddress =  new UserAddress();
                    $userAddress->user_id=$request->user_id;
+                   $userAddress->fname=$request->fname;
+                   $userAddress->lname=$request->lname;
                    $userAddress->address_type=$request->address_type;
                    $userAddress->address_line1=$request->address_line1;
                    $userAddress->address_line2=$request->address_line2;
@@ -385,12 +406,75 @@ class BuyerController extends Controller
                    $userAddress->is_default=$request->is_default;
                    $userAddress->save();
 
+
+
                     return response()->json([
                             'status' => true,
                             'message' => "Address saved",
                         ], 200);
 
         }
+
+       public function updateUserAddress(Request $request)
+            {
+                // Validate input
+                $validator = Validator::make($request->all(), [
+                    'id' => 'required|exists:user_address',
+                    'address_type'  => 'required|in:billing,shipping',
+                    'address_line1' => 'required|string|max:255',
+                    'address_line2' => 'nullable|string|max:255',
+                    'city'          => 'required|string|max:100',
+                    'state'         => 'required|string|max:100',
+                    'postal_code'   => 'required|string|max:20',
+                    'country'       => 'required|string|max:100',
+                    'phone'         => 'required|string|max:15',
+                    
+                ]);
+
+                // Check if validation fails
+                if ($validator->fails()) {
+                    return response()->json([
+                        'status' => false,
+                        'errors' => $validator->errors(),
+                    ], 422);
+                }
+
+                 if($request->is_default=="1")
+                    {
+                       UserAddress::query()->update(['is_default' => 0]);
+
+                    }
+                // Find the address record
+                $userAddress = UserAddress::where('id', $request->id)->first(); 
+                
+                if (!$userAddress) {
+                    return response()->json([
+                        'status' => false,
+                        'message' => "Address not found",
+                    ], 404);
+                }
+
+                // Update address details
+                $userAddress->update([
+                    'fname'=>$request->fname,
+                    'lname'=>$request->lname,
+                    'address_type'  => $request->address_type,
+                    'address_line1' => $request->address_line1,
+                    'address_line2' => $request->address_line2,
+                    'city'          => $request->city,
+                    'state'         => $request->state,
+                    'postal_code'   => $request->postal_code,
+                    'country'       => $request->country,
+                    'phone'         => $request->phone,
+                    'is_default'    => $request->is_default ?? 0,
+                ]);
+
+                return response()->json([
+                    'status' => true,
+                    'message' => "Address updated successfully",
+                ], 200);
+            }
+
 
         public function getUserAddress($user_id)
         {
@@ -404,6 +488,54 @@ class BuyerController extends Controller
                 ], 200);
 
         }
+
+         public function getUserSingleAddress($address_id)
+        {
+           
+
+             $address = UserAddress::where(["id"=>$address_id])->first();
+
+              return response()->json([
+                    'status' => true,
+                    'data' => $address,
+                ], 200);
+
+        }
+
+         public function deleteUserAddress(Request $request)
+            {
+                $validator = Validator::make($request->all(), [
+                      'address_id'=>'required',
+                     
+            
+                    ]);
+
+                    // Check if validation fails
+                    if ($validator->fails()) {
+                        return response()->json([
+                            'status' => false,
+                            'errors' => "Invalid request",
+                        ], 200);
+                    }
+
+                try{
+                     $all_address = UserAddress::where(["id"=>$request->address_id])->delete();
+
+                  return response()->json([
+                        'status' => true,
+                        'message' => "Address delete successfully",
+                    ], 200);
+                }catch(error){
+
+                      return response()->json([
+                            'status' => false,
+                            'message' => "Can't remove message",
+                        ], 200);
+                }
+
+                
+
+            }
 
        public function placeOrder(Request $request)
         {
@@ -495,6 +627,125 @@ class BuyerController extends Controller
                 ], 500);
             }
 }
+
+public function getOrderDetails(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'order_id' => 'required|exists:orders,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'errors' => $validator->errors(),
+        ], 400);
+    }
+
+    try {
+        $orderId = $request->order_id;
+
+        // Retrieve order details
+        $order = Order::with(['orderItems'])
+            ->where('id', $orderId)
+            ->first();
+
+        if (!$order) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Order not found',
+            ], 404);
+        }
+
+        // Format response
+        $orderDetails = [
+            'order_id' => '#'.str_pad($order->id, 8, '0', STR_PAD_LEFT), // e.g., #12345678
+            'order_date' => $order->created_at->format('M d, Y'),        // e.g., Nov 16, 2024
+            'total_price' => '$'.$order->total_price,                   // e.g., $40
+            'order_status' => $order->order_status,                     // e.g., Pending, Delivered
+            'products' => $order->orderItems->map(function ($item) {
+                return [
+                    'product_name' => $item->product_title,    // From `orderitem` table
+                    'quantity' => $item->qty,                 // From `orderitem` table
+                    'vendor' => 'Vendor Name',                // Add vendor logic if required
+                ];
+            }),
+        ];
+
+        return response()->json([
+            'status' => true,
+            'data' => $orderDetails,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'An error occurred while fetching the order details.',
+        ], 500);
+    }
+}
+
+
+
+public function getUserOrders(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'user_id' => 'required|exists:users,id',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => false,
+            'errors' => $validator->errors(),
+        ], 400);
+    }
+
+    try {
+        $userId = $request->user_id;
+
+        // Retrieve all orders for the user with related order items, vendor, and products
+        $orders = Order::with(['orderItems.product', 'vendor']) // Fetch related product details
+            ->where('user_id', $userId)
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No orders found for this user.',
+            ], 404);
+        }
+
+        // Format response
+        $userOrders = $orders->map(function ($order) {
+            return [
+                'order_id' => '#' . str_pad($order->id, 8, '0', STR_PAD_LEFT), // e.g., #00001234
+                'order_date' => $order->created_at->format('M d, Y'), // e.g., Jan 28, 2025
+                'total_price' => '$' . $order->total_price, // e.g., $40.00
+                'order_status' => $order->order_status, // e.g., Pending, Delivered
+                'vendor' => $order->vendor->firstName ?? 'Unknown Vendor', // Fetch vendor name from order
+                'products' => $order->orderItems->map(function ($item) {
+                    return [
+                        'product_name' => $item->product_title ?? 'Unknown Product', // Fetch product name
+                        'quantity' => $item->qty, // Quantity from `order_items` table
+                        'product_image' => $item->product->product_image ? asset('uploads/' . $item->product->product_image) : asset('uploads/default.png'), // Fetch product image
+                    ];
+                }),
+            ];
+        });
+
+        return response()->json([
+            'status' => true,
+            'data' => $userOrders,
+        ], 200);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'An error occurred while fetching the user orders.',
+        ], 500);
+    }
+}
+
+
 
 
 }

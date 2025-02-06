@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BuyerController;
+use App\Http\Controllers\VendorController;
 
 /*
 |--------------------------------------------------------------------------
@@ -23,12 +24,15 @@ Route::post("verify_otp",[UserAuthController::class,"verifyOtp"]);
 Route::post("reset_password",[UserAuthController::class,"resetPassword"]);
 Route::post("login",[UserAuthController::class,"login"]);
 
+Route::get('/all_vendor', [BuyerController::class, 'getAllVendor']);
+Route::get('/get_products/{vendor_id}/{user_id?}', [BuyerController::class, 'getAllProducts']);
+
 Route::middleware('auth:sanctum')->group(function () {  
 Route::get('/account_details/{user_id}', [BuyerController::class, 'accountDetails']);
-Route::get('/all_vendor', [BuyerController::class, 'getAllVendor']);
+
 Route::post('/update_account', [BuyerController::class, 'updateAccount']);
 Route::post('/update_profile', [BuyerController::class, 'update_profile']);
-Route::get('/get_products/{vendor_id}/{user_id}', [BuyerController::class, 'getAllProducts']);
+
 Route::post('/add_to_cart', [BuyerController::class, 'addToCart']);
 Route::post('/remove_to_cart', [BuyerController::class, 'removeToCart']);
 Route::post('/cart_count', [BuyerController::class, 'cartCount']);
@@ -38,7 +42,25 @@ Route::post('/update_cart', [BuyerController::class, 'updateCart']);
 Route::post('/add_user_address', [BuyerController::class, 'addUserAddress']);
 Route::get('/get_user_address/{user_id}', [BuyerController::class, 'getUserAddress']);
 Route::post('/place_order', [BuyerController::class, 'placeOrder']);
-     
+//Route::get('/user_orders/{user_id}', [BuyerController::class, 'userOrder']);
+Route::post('/get_order_details', [BuyerController::class, 'getOrderDetails']);
+Route::post('/get_user_orders', [BuyerController::class, 'getUserOrders']);
+Route::post('/delete_user_address', [BuyerController::class, 'deleteUserAddress']);
+Route::get('/get_user_single_address/{address_id}', [BuyerController::class, 'getUserSingleAddress']);
+Route::post('/update_user_address', [BuyerController::class, 'updateUserAddress']);
+
+
+// Vendor Routes
+
+Route::prefix('vendor')->group(function () {
+    Route::post('/products', [VendorController::class, 'products']);
+    Route::post('/get_vendor_orders', [VendorController::class, 'getVendorOrders']);
+    Route::post('/get_order_details', [VendorController::class, 'getOrderDetails']);
+    Route::post('/get_product_details', [VendorController::class, 'getProductDetails']);
+  
+}); 
+
+   
 });
 
 

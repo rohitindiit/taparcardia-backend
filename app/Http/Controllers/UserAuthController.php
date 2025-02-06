@@ -31,12 +31,15 @@ class UserAuthController extends Controller
         // If validation passes, process the data
         $validatedData = $validator->validated();
 
+        if( $validatedData['role']=="Buyer"){ $role="2";}
+        
+        if( $validatedData['role']=="Vendor"){ $role="3";}
         // Example: Create a new user
         $user = User::create([
             'firstName' => $validatedData['firstname'],
             'lastName'  => $validatedData['lastname'],
             'email'     => $validatedData['email'],
-            'role'      => $validatedData['role'],
+            'role'      => $role,
             'password'  =>  Hash::make($validatedData['password']), 
         ]);
 
@@ -174,7 +177,44 @@ class UserAuthController extends Controller
         return response()->json([
             'status' => false,
             'message' => 'Invalid credentials.',
-        ], 401);
+        ], 200);
+    }
+
+    public function changePassword(Request $request)
+    {
+        // Validate input
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|exists:users,id',
+            'old_password' => 'required',
+            'new_password' => 'required|min:8|confirmed',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors(),
+            ], 200);
+        }
+
+        // Fetch user by ID
+        $user = User::find($request->user_id);
+
+        // Check if old password matches
+        if (!Hash::check($request->old_password, $user->password)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Old password is incorrect.',
+            ], 200);
+        }
+
+        // Update password
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Password changed successfully.',
+        ], 200);
     }
 
 }
